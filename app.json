@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "TalkoChat",
+    "slug": "talkochat",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "android": {
+      "package": "com.talko.talkochat",
+      "permissions": ["INTERNET"]
+    }
+  }
+}
