@@ -1,0 +1,50 @@
+name: Publish DFI RC1.8 payload
+
+on:
+  push:
+    branches: [dont-feed-it-miniapp]
+    paths: ['.github/workflows/dfi-payload.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dont-feed-it-miniapp
+      - name: Fetch and verify full RC1.8
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://dfi-chunks.vercel.app/?_vercel_share=pNSHpN9RqKfcQgpxY5C1erEHyU0Wthmn' -o /tmp/dfi.b64
+          python - <<'PY'
+          import base64, gzip, hashlib, pathlib
+          p = pathlib.Path('/tmp/dfi.b64').read_text().strip()
+          if not p.startswith('H4sI'):
+              raise SystemExit('invalid gzip payload')
+          html = gzip.decompress(base64.b64decode(p))
+          checks = [b'RC 1.8', b'BLACKOUT PROTOCOL', b'window.DFI_REMOTE=false', b'id="home"', b'id="dex"', b'id="gene"']
+          missing = [x.decode() for x in checks if x not in html]
+          if missing:
+              raise SystemExit('missing markers: '+', '.join(missing))
+          sha = hashlib.sha256(html).hexdigest()
+          expected = '73596af800315582ef490c60df39512295e2b5010fd19276fe7ad3411f4b21fd'
+          if sha != expected:
+              raise SystemExit(f'sha mismatch {sha}')
+          out = pathlib.Path('dfi/index.html')
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_bytes(html)
+          print('verified', len(html), sha)
+          PY
+      - name: Commit full game
+        shell: bash
+        run: |
+          git config user.name 'DFI Release Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add dfi/index.html
+          git commit -m 'Publish full DON’T FEED IT RC1.8' || exit 0
+          git push origin HEAD:dont-feed-it-miniapp
